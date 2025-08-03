@@ -9,6 +9,9 @@ HH_VACANCY_URL = "https://api.hh.ru/vacancies/{}"
 def vacancy_stats(vacancy_id: str = Query(...)):
     # Запрос вакансии на hh.ru
     resp = requests.get(HH_VACANCY_URL.format(vacancy_id))
+
+    print(HH_VACANCY_URL.format(vacancy_id))
+
     if resp.status_code != 200:
         raise HTTPException(status_code=404, detail="Vacancy not found")
 

@@ -1,4 +1,4 @@
-// src/app/App.tsx - ПОЛНАЯ УЛУЧШЕННАЯ ВЕРСИЯ
+// src/app/App.tsx - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { VacancyCard } from "../feature/VacancyCard";
@@ -61,7 +61,50 @@ function App() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [activeTab, setActiveTab] = useState<'search' | 'applications' | 'bot'>('search');
 
-  // Upload resume and analyze
+  // Search vacancies - ИСПРАВЛЕНА ЛОГИКА
+  const searchVacancies = async (rId?: number, pageNum = 0, reset = false) => {
+    const targetResumeId = rId || resumeId;
+
+    if (!targetResumeId) {
+      console.log('No resume ID available for search');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = {
+        resume_id: targetResumeId,
+        query: searchQuery,
+        page: pageNum,
+        min_similarity: minSimilarity
+      };
+
+      console.log('Searching with params:', params);
+
+      const response = await axios.get("http://localhost:8000/match-vacancies", { params });
+
+      if (reset || pageNum === 0) {
+        setMatches(response.data.matches);
+      } else {
+        setMatches(prev => [...prev, ...response.data.matches]);
+      }
+
+      setPage(pageNum);
+      setHasMore(response.data.has_more);
+
+      console.log(`Found ${response.data.matches.length} matches`);
+
+    } catch (e: any) {
+      console.error('Search error:', e);
+      setError(e.response?.data?.detail || "Ошибка при поиске вакансий");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Upload resume and analyze - ИСПРАВЛЕН АВТОПОИСК
   const uploadResume = async () => {
     if (!file) return;
     setLoading(true);
@@ -71,56 +114,33 @@ function App() {
       const formData = new FormData();
       formData.append("file", file);
 
+      console.log('Uploading resume...');
       const response = await axios.post("http://localhost:8000/upload-resume", formData);
-      console.log('====================================');
-      console.log('response',response);
-      console.log('====================================');
-      setResumeId(response.data.resume_id);
+
+      console.log('Resume uploaded:', response.data);
+
+      const newResumeId = response.data.resume_id;
+      setResumeId(newResumeId);
       setResumeAnalysis(response.data.analysis);
 
-      // Auto-search after upload
-      await searchVacancies(response.data.resume_id, 0, true);
+      // Автоматически запускаем поиск с новым resume_id
+      console.log('Starting auto-search with resume_id:', newResumeId);
+
+      // Используем setTimeout чтобы дать состоянию обновиться
+      setTimeout(async () => {
+        try {
+          await searchVacancies(newResumeId, 0, true);
+        } catch (searchError) {
+          console.error('Auto-search failed:', searchError);
+        }
+      }, 100);
 
     } catch (e: any) {
+      console.error('Upload error:', e);
       setError(e.response?.data?.detail || "Ошибка при загрузке резюме");
     } finally {
-      setLoading(false);
-    }
-  };
-
-  // Search vacancies
-  const searchVacancies = async (rId?: number, pageNum?: number, reset = false) => {
-    const targetResumeId = rId || resumeId;
-    const targetPage = pageNum !== undefined ? pageNum : page;
-
-    if (!targetResumeId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const params = {
-        resume_id: targetResumeId,
-        query: searchQuery,
-        page: targetPage,
-        min_similarity: minSimilarity
-      };
-
-      const response = await axios.get("http://localhost:8000/match-vacancies", { params });
-
-      if (reset || targetPage === 0) {
-        setMatches(response.data.matches);
-      } else {
-        setMatches(prev => [...prev, ...response.data.matches]);
-      }
-
-      setPage(targetPage);
-      setHasMore(response.data.has_more);
-
-    } catch (e: any) {
-      setError(e.response?.data?.detail || "Ошибка при поиске вакансий");
-    } finally {
-      setLoading(false);
+      // Не убираем loading сразу, так как начался поиск
+      // setLoading(false);
     }
   };
 
@@ -239,19 +259,23 @@ function App() {
     };
   }, [statusInterval]);
 
+
   const renderSearchTab = () => (
     <>
-      <ResumeUploader onFileSelect={setFile} disabled={loading} />
+      <div>
+        <ResumeUploader onFileSelect={setFile} disabled={loading} />
 
       {!resumeId && (
         <Button
           onClick={uploadResume}
           disabled={loading || !file}
-          label={loading ? "Загрузка..." : "Загрузить резюме"}
+          label={loading ? "Загрузка и поиск..." : "Загрузить резюме"}
         />
       )}
+      </div>
 
-      {resumeAnalysis && (
+      <div>
+        {resumeAnalysis && (
         <div className={styles.resumeAnalysis}>
           <h3>Анализ резюме:</h3>
           <p><strong>Опыт:</strong> {resumeAnalysis.experience_years} лет</p>
@@ -294,6 +318,13 @@ function App() {
           />
         </div>
       )}
+      </div>
+
+      {loading && (
+        <div className={styles.loadingIndicator}>
+          <p>⏳ {resumeId ? 'Ищем подходящие вакансии...' : 'Загружаем и анализируем резюме...'}</p>
+        </div>
+      )}
 
       <div className={styles.resultsInfo}>
         {matches.length > 0 && (
@@ -315,6 +346,17 @@ function App() {
 
       {hasMore && !loading && matches.length > 0 && (
         <Button onClick={loadMore} label="Загрузить ещё" />
+      )}
+
+      {!loading && matches.length === 0 && resumeId && (
+        <div className={styles.noResults}>
+          <p>🔍 Вакансии не найдены. Попробуйте:</p>
+          <ul>
+            <li>Изменить поисковый запрос</li>
+            <li>Снизить минимальное совпадение</li>
+            <li>Проверить настройки поиска</li>
+          </ul>
+        </div>
       )}
     </>
   );
@@ -440,7 +482,7 @@ function App() {
   );
 
   return (
-    <BaseLayout sidebar={<Sidebar />}>
+    <BaseLayout >
       <LogoApp link={'/logo.svg'} text={'Coffee Job Bot'} />
 
       <div className={styles.tabNavigation}>

@@ -1,6 +1,5 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import styles from './shared/gloabalStyles/global.module.scss'
 import App from './app/App'
 
 createRoot(document.getElementById('root')!).render(
