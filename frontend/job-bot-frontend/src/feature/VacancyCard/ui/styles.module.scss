@@ -1,0 +1,71 @@
+@import '../../../shared/gloabalStyles/global.module.scss';
+
+.vacancyCard {
+  border: 3px dashed $border;
+  border-radius: 12px;
+  padding: 16px;
+  background-color: #1a1a1a;
+  transition: 2s ease-in-out;
+
+  &:hover {
+    border: 3px solid $border;
+  }
+
+  .vacancyCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    .vacancyCardLogo {
+      width: 100px;
+      height: 50px;
+      object-fit: scale-down;
+    }
+
+    .vacancyCardTitle {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .company {
+      font-size: 14px;
+      color: #555;
+    }
+
+    .similarity {
+      font-size: 14px;
+      color: $accent;
+    }
+  }
+
+  .info {
+    margin-top: 12px;
+    font-size: 14px;
+
+    p {
+      margin: 4px 0;
+    }
+  }
+
+  .snippet {
+    margin-top: 12px;
+
+    p {
+      font-size: 14px;
+      margin: 4px 0;
+    }
+  }
+
+  .actions {
+    margin-top: 12px;
+
+    .btn {
+      display: inline-block;
+      padding: 8px 12px;
+      background-color: $black;
+      color: $white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 14px;
+    }
+  }
+}
